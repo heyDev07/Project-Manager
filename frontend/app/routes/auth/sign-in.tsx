@@ -16,7 +16,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useLoginMutation } from "@/hooks/use-auth";
 import { signInSchema } from "@/lib/schema";
 import { useAuth } from "@/provider/auth-context";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,12 +24,14 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { z } from "zod";
+import { useState } from "react";
 
 type SigninFormData = z.infer<typeof signInSchema>;
 
 const SignIn = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const [isPending, setIsPending] = useState(false);
 
   const form = useForm<SigninFormData>({
     resolver: zodResolver(signInSchema),
@@ -39,23 +40,20 @@ const SignIn = () => {
       password: "",
     },
   });
-  const { mutate, isPending } = useLoginMutation();
 
-  const handleOnSubmit = (values: SigninFormData) => {
-    mutate(values, {
-      onSuccess: (data) => {
-        login(data);
-        console.log(data);
-        toast.success("Login successful");
-        navigate("/dashboard");
-      },
-      onError: (error: any) => {
-        const errorMessage =
-          error.response?.data?.message || "An error occurred";
-        console.log(error);
-        toast.error(errorMessage);
-      },
-    });
+  const handleOnSubmit = async (values: SigninFormData) => {
+    setIsPending(true);
+    try {
+      await login(values.email, values.password);
+      toast.success("Login successful");
+      navigate("/dashboard");
+    } catch (error: any) {
+      const errorMessage = error.message || "An error occurred";
+      console.log(error);
+      toast.error(errorMessage);
+    } finally {
+      setIsPending(false);
+    }
   };
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-muted/40 p-4">

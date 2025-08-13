@@ -1,5 +1,5 @@
-import { signInSchema, signUpSchema } from "@/lib/schema";
-import React from "react";
+import { signUpSchema } from "@/lib/schema";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -22,13 +22,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router";
-import { useSignUpMutation } from "@/hooks/use-auth";
+import { useAuth } from "@/provider/auth-context";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 export type SignupFormData = z.infer<typeof signUpSchema>;
 
 const SignUp = () => {
   const navigate = useNavigate();
+  const { signup } = useAuth();
+  const [isPending, setIsPending] = useState(false);
   const form = useForm<SignupFormData>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
@@ -39,26 +42,20 @@ const SignUp = () => {
     },
   });
 
-  const { mutate, isPending } = useSignUpMutation();
-
-  const handleOnSubmit = (values: SignupFormData) => {
-    mutate(values, {
-      onSuccess: () => {
-        toast.success("Email Verification Required", {
-          description:
-            "Please check your email for a verification link. If you don't see it, please check your spam folder.",
-        });
-
-        form.reset();
-        navigate("/sign-in");
-      },
-      onError: (error: any) => {
-        const errorMessage =
-          error.response?.data?.message || "An error occurred";
-        console.log(error);
-        toast.error(errorMessage);
-      },
-    });
+  const handleOnSubmit = async (values: SignupFormData) => {
+    setIsPending(true);
+    try {
+      await signup(values.email, values.password, values.name);
+      toast.success("Account created successfully!");
+      form.reset();
+      navigate("/dashboard");
+    } catch (error: any) {
+      const errorMessage = error.message || "An error occurred";
+      console.log(error);
+      toast.error(errorMessage);
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
@@ -145,7 +142,14 @@ const SignUp = () => {
               />
 
               <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending ? "Signing up..." : "Sign up"}
+                {isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Signing up...
+                  </>
+                ) : (
+                  "Sign up"
+                )}
               </Button>
             </form>
           </Form>
